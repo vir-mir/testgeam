@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #!-*- coding: utf-8 -*-
+import hashlib
 
 import json
 from random import random
@@ -7,8 +8,8 @@ from random import random
 import tornado.web
 import tornado.ioloop
 import tornado.websocket
-from tornado import template
-import memcache
+import lib
+import time
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -35,30 +36,28 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             self.send_push(client, message, data)
 
     def new_user(self):
-        clients = self.application.db.get('clients')
+        clients = lib.db.get('clients')
 
         if not clients:
-            self.application.db.set('clients', [id(self)])
+            lib.db.set('clients', [id(self)])
+            self.sends([id(self)], 'ready', {'points': lib.get_random_int(20, 200), 'host': 1})
         else:
             clients.append(id(self))
-            self.application.db.replace('clients', clients)
-            if len(clients) > 1:
-                self.sends(clients, 'ready')
+            lib.db.replace('clients', clients)
 
             if len(clients) > 3:
-                vals = clients[:4]
-                self.application.db.replace('actives_%s' % random(), vals)
-                self.application.db.replace('clients', clients[4:])
-                self.sends(vals, 'start')
+                self.go_user()
+            else:
+                self.sends(clients, 'ready', {'points': lib.get_random_int(20, 200)})
 
     def go_user(self):
-        clients = self.application.db.get('clients')
-
-        if clients and id(self) in clients:
-            vals = clients[clients.index(id(self)):4]
-            self.application.db.replace('actives_%s' % random(), vals)
-            self.application.db.replace('clients', clients[:clients.index(id(self))] + clients[clients.index(id(self))+4:])
-            self.sends(vals, 'start')
+        clients = lib.db.get('clients')
+        sha1 = hashlib.sha1(b'%s%s' % (id(self), time.time()))
+        session_id = 'actives_%s' % sha1.hexdigest()
+        lib.db.set(session_id, clients)
+        lib.db.replace('clients', [])
+        lib.db.set('points', [])
+        self.sends(clients, 'start', {'clients': clients, 'session_id': session_id})
 
     def on_message(self, message):
         message_dict = json.loads(message)
@@ -67,11 +66,26 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             self.new_user()
         elif 'go' in message_dict['action']:
             self.go_user()
+        elif 'jump' in message_dict['action']:
+            self.jump_user(message_dict)
+
+    def jump_user(self, message_dict):
+        clients = lib.db.get(message_dict['session_id'].encode('utf-8'))
+        if clients:
+            if message_dict['user_id'] in clients:
+                clients.pop(clients.index(message_dict['user_id']))
+            self.sends(clients, "jump", {
+                "player_index": message_dict['player_index']
+            })
 
     def on_close(self, message=None):
         for key, value in enumerate(self.application.webSocketsPool):
             if value == self:
                 del self.application.webSocketsPool[key]
+                clients = lib.db.get('clients')
+                if id(self) in clients:
+                    clients.pop(clients.index(id(self)))
+                lib.db.set('clients', clients)
                 break
 
 
@@ -79,7 +93,6 @@ class Application(tornado.web.Application):
     def __init__(self):
         self.webSocketsPool = []
 
-        self.db = memcache.Client(['127.0.0.1:11211'], debug=0)
         handlers = (
             (r'/', MainHandler),
             (r'/websocket/?', WebSocket),
