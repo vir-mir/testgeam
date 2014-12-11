@@ -68,6 +68,8 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             self.go_user()
         elif 'jump' in message_dict['action']:
             self.jump_user(message_dict)
+        elif 'timer' in message_dict['action']:
+            self.timer_user()
 
     def jump_user(self, message_dict):
         clients = lib.db.get(message_dict['session_id'].encode('utf-8'))
@@ -77,6 +79,9 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             self.sends(clients, "jump", {
                 "player_index": message_dict['player_index']
             })
+
+    def timer_user(self):
+        self.sends([id(self)], "timer")
 
     def on_close(self, message=None):
         for key, value in enumerate(self.application.webSocketsPool):

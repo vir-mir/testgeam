@@ -10,6 +10,7 @@ window.addEventListener('load', function () {
     socket.onmessage = function (e) {
         var data = JSON.parse(e.data);
         console.log(data.action);
+        user_id = data.id;
         switch (data.action) {
             case "ready":
                 if (data.data['host']) {
@@ -22,12 +23,14 @@ window.addEventListener('load', function () {
                 }
                 break;
             case "start":
-                user_id = data.id;
                 session_id = data.data.session_id;
                 start_game(data.data);
                 break;
             case "jump":
                 jump(data.data.player_index);
+                break;
+            case "timer":
+                setTimeout(timerStartRender, 50)
                 break;
         }
     };

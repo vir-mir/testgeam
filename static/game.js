@@ -158,7 +158,7 @@ function drawFailGame(canvas, context) {
 function jump(playerIndex) {
     var player = gameData.players[playerIndex];
     if (player.status == 'running') {
-        if (HOST) {
+        if (HOST || player.type == 'human') {
             socket_send({
                 action: 'jump',
                 user_id: user_id,
@@ -244,7 +244,7 @@ var ready = function (treeOffsets) {
             stepSize: 3,
             status: 'running',
             type: 'npc'
-        }, {
+        }/*, {
             step: 0,
             positionX: 0,
             positionY: 0,
@@ -262,7 +262,7 @@ var ready = function (treeOffsets) {
             stepSize: 3,
             status: 'running',
             type: 'npc'
-        }]
+        }*/]
     }
 
     tracks = new Image();
@@ -497,12 +497,12 @@ var ready = function (treeOffsets) {
             sprites.onload = function () {
 
                 if (canvas.getContext) {
-                    canvas.width = document.body.offsetWidth;
+                    canvas.width = 900;
                     var context = canvas.getContext('2d');
                     canvas.height = 745;
                     jQuery(window).resize(
                         function () {
-                            canvas.width = document.body.offsetWidth;
+                            canvas.width = 900;
                             drawStage(canvas, context);
                         }
                     );
@@ -572,7 +572,7 @@ function initializeGame(canvas, context) {
 
     var currentTreeOffset = 100;
     while (currentTreeOffset < canvas.width - 200) {
-        var currentTree = 1;getRandomInt(1, 3);
+        var currentTree = getRandomInt(1, 3);
         randomOffset = gameData.treeOffsets.shift();
         currentTreeOffset += randomOffset + gameData.treeSpace + 45;
 
@@ -653,8 +653,8 @@ function startRender() {
                 var i, p, player, randomOffset, treeOffset, randomTree;
                 //randomOffset = getRandomInt(20, 200);
 
-                randomTree = 1;getRandomInt(1, 3);
-                randomOffset = 1;getRandomInt(30 * randomTree, 200);
+                randomTree = 3;getRandomInt(1, 3);
+                randomOffset = 200;getRandomInt(30 * randomTree, 200);
                 if (frame % Math.ceil(gameData.trackSpeed) == 0) {
                     gameData.tracksPosition -= gameData.treeStep;
                     if (gameData.tracksPosition <= -330) {
