@@ -4,6 +4,7 @@ import memcache
 
 db = memcache.Client(['127.0.0.1:11211'], debug=0)
 db.set('clients', [])
+db.set('points', [])
 
 
 def get_random_int(min, max):
