@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 #!-*- coding: utf-8 -*-
 import hashlib
-
 import json
-from random import random
-
 import tornado.web
 import tornado.ioloop
 import tornado.websocket
@@ -68,8 +65,10 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             self.go_user()
         elif 'jump' in message_dict['action']:
             self.jump_user(message_dict)
-        elif 'timer' in message_dict['action']:
-            self.timer_user()
+        elif 'set_gameData' in message_dict['action']:
+            lib.db.set("game_data_%s" % message_dict['session_id'].encode('utf-8'), message_dict['data'])
+        elif 'get_gameData' in message_dict['action']:
+            self.get_game_data(message_dict)
 
     def jump_user(self, message_dict):
         clients = lib.db.get(message_dict['session_id'].encode('utf-8'))
@@ -80,8 +79,15 @@ class WebSocket(tornado.websocket.WebSocketHandler):
                 "player_index": message_dict['player_index']
             })
 
-    def timer_user(self):
-        self.sends([id(self)], "timer")
+    def get_game_data(self, message_dict):
+        if not message_dict['session_id']:
+            return None
+
+        key = message_dict['session_id'].encode('utf-8')
+        data = lib.db.get("game_data_%s" % key)
+        clients = lib.db.get("%s" % key)
+        if data and clients:
+            self.sends(clients, 'set_data', {'data': data})
 
     def on_close(self, message=None):
         for key, value in enumerate(self.application.webSocketsPool):
@@ -107,8 +113,7 @@ class Application(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers)
 
 
-application = Application()
-
 if __name__ == '__main__':
+    application = Application()
     application.listen(8888)
     tornado.ioloop.IOLoop.instance().start()

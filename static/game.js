@@ -22,6 +22,25 @@ function drawSprite(spriteName, context, x, y) {
 }
 
 function drawStage(canvas, context) {
+    if (gameData.gameStatus == 'active') {
+        if (!firefox && !iOS) {
+            if (runTimer == null) {
+                runTimer = setTimeout(
+                    function () {
+                        sounds['winner'].pause();
+                        sounds['run'].addEventListener('ended',
+                            function () {
+                                this.currentTime = 0;
+                                this.play();
+                            },
+                            false);
+                        sounds['run'].play();
+                    },
+                    1
+                );
+            }
+        }
+    }
 
     drawBackground(canvas, context);
     drawTracks(canvas, context);
@@ -158,7 +177,7 @@ function drawFailGame(canvas, context) {
 function jump(playerIndex) {
     var player = gameData.players[playerIndex];
     if (player.status == 'running') {
-        if (HOST || player.type == 'human') {
+        if (player.type == 'human') {
             socket_send({
                 action: 'jump',
                 user_id: user_id,
@@ -244,7 +263,7 @@ var ready = function (treeOffsets) {
             stepSize: 3,
             status: 'running',
             type: 'npc'
-        }/*, {
+        }, {
             step: 0,
             positionX: 0,
             positionY: 0,
@@ -262,8 +281,8 @@ var ready = function (treeOffsets) {
             stepSize: 3,
             status: 'running',
             type: 'npc'
-        }*/]
-    }
+        }]
+    };
 
     tracks = new Image();
     tracks.src = 'http://artgorbunov.ru/2013/images/tracks.png';
@@ -441,7 +460,7 @@ var ready = function (treeOffsets) {
                             break;
                         case 'lost':
                         case 'won':
-                            initializeGame(gameData.canvas, gameData.context);
+                            initializeGame(CANVAS_GAME, CONTEXT_GAME);
                             gameData.gameStatus = 'active';
                             break;
                         case 'new':
@@ -464,7 +483,7 @@ var ready = function (treeOffsets) {
                     break;
                 case 'lost':
                 case 'won':
-                    initializeGame(gameData.canvas, gameData.context);
+                    initializeGame(CANVAS_GAME, CONTEXT_GAME);
                     gameData.gameStatus = 'active';
                     break;
                 case 'new':
@@ -509,8 +528,8 @@ var ready = function (treeOffsets) {
 
                     initializeGame(canvas, context);
                     startRender();
-                    gameData.canvas = canvas;
-                    gameData.context = context;
+                    CANVAS_GAME = canvas;
+                    CONTEXT_GAME = context;
                     drawStage(canvas, context);
 
                 }
@@ -532,7 +551,6 @@ var ready = function (treeOffsets) {
 function initializeGame(canvas, context) {
 
     var treePositions = [];
-    trees = [];
     if (jQuery('.new-logo').length > 0) {
         gameData.tracksOffset = jQuery('.new-logo').offset().left;
     }
@@ -589,33 +607,25 @@ function initializeGame(canvas, context) {
 }
 
 function startRender() {
-    var frame = 0;
+
+    gameData.frame = 0;
     gameData.timer = setInterval(
         function () {
-            gameData.trackLength = gameData.canvas.width - 200;
+            if (!HOST) {
+                socket_send({
+                    'action': 'get_gameData',
+                    'session_id': session_id
+                });
+                return;
+            }
+            gameData.trackLength = CANVAS_GAME.width - 200;
             var i, player;
             if (gameData.gameStatus == 'active') {
-                if (!firefox && !iOS) {
-                    if (runTimer == null) {
-                        runTimer = setTimeout(
-                            function () {
-                                sounds['winner'].pause();
-                                sounds['run'].addEventListener('ended',
-                                    function () {
-                                        this.currentTime = 0;
-                                        this.play();
-                                    },
-                                    false);
-                                sounds['run'].play();
-                            },
-                            1
-                        );
-                    }
-                }
+
                 var hasWinner = false;
                 for (i = 0; i < gameData.players.length; ++i) {
                     player = gameData.players[i];
-                    if (frame % Math.ceil(gameData.gameSpeed / player.speed) == 0) {
+                    if (gameData.frame % Math.ceil(gameData.gameSpeed / player.speed) == 0) {
                         player.step++;
                         player.positionX += player.stepSize;
                         switch (player.status) {
@@ -650,83 +660,10 @@ function startRender() {
                     }
                 }
 
-                var i, p, player, randomOffset, treeOffset, randomTree;
-                //randomOffset = getRandomInt(20, 200);
-
-                randomTree = 3;getRandomInt(1, 3);
-                randomOffset = 200;getRandomInt(30 * randomTree, 200);
-                if (frame % Math.ceil(gameData.trackSpeed) == 0) {
-                    gameData.tracksPosition -= gameData.treeStep;
-                    if (gameData.tracksPosition <= -330) {
-                        gameData.tracksPosition += 330;
-                    }
-
-                    gameData.snowPositionX -= 3;
-                    if (gameData.snowPositionX <= -480) {
-                        gameData.snowPositionX += 480;
-                    }
-
-                    gameData.snowPositionY += 1;
-                    if (gameData.snowPositionY >= 0) {
-                        gameData.snowPositionY -= 410;
-                    }
-
-                    treeOffset = randomOffset + gameData.treeSpace + 45;
-                    for (p = 0; p < gameData.players.length; ++p) {
-                        player = gameData.players[p];
-                        for (i = 0; i < trees[p].length; ++i) {
-                            trees[p][i].x = trees[p][i].x - gameData.treeStep;
-                        }
-                        if (trees[p][0].x <= -45) {
-                            trees[p].shift();
-                        }
-                        if ((trees[p][trees[p].length - 1].x < gameData.canvas.width - treeOffset) && (gameData.canvas.width - gameData.maxPlayerPosition > 500)) {
-                            //console.log(trees[p][trees[p].length - 1].x < gameData.canvas.width - treeOffset);
-                            //console.log(gameData.canvas.width - gameData.maxPlayerPosition);
-                            trees[p].push({
-                                x: treeOffset + trees[0][trees[p].length - 1].x,
-                                tile: randomTree,
-                                status: 'standing'
-                            });
-                        }
-
-                        if (player.status == 'running') {
-                            for (i = 0; i < trees[p].length; ++i) {
-                                treeBack = trees[p][i].x;
-                                var treeFront, treeBack, playerFront, playerBack;
-                                treeFront = treeBack + 60;
-                                playerBack = player.positionX + 20;
-                                playerFront = playerBack + 50;
-                                var jumped = false;
-                                if (player.type == 'npc' && HOST) {
-                                    jumped = getRandomInt(1, 100) > 26;
-                                    //jumped = false;
-                                    if (jumped) {
-                                        var spaceToJump = treeBack - playerFront;
-                                        if (spaceToJump >= 0 && spaceToJump <= (player.stepSize + gameData.treeStep)) {
-                                            jump(p);
-                                        }
-                                    }
-                                }
-
-                                if (!jumped) {
-                                    if (playerFront > treeBack && playerBack < treeFront) {
-
-                                        if (player.status != 'walking') {
-                                            playSound('collide');
-                                            trees[p][i].status = 'broken';
-                                            player.status = 'collided';
-                                            player.step = 0;
-                                        }
-                                        player.stepSize = gameData.stepSize;
-                                        player.jumpLength = gameData.jumpLength;
-                                        break;
-                                    }
-                                }
-
-                            }
-                        }
-                    }
+                gameData.randomTree = getRandomInt(1, 3);
+                gameData.randomOffset = getRandomInt(30 * gameData.randomTree, 200);
+                if (gameData.frame % Math.ceil(gameData.trackSpeed) == 0) {
+                    renderTree();
                 }
             } else if (gameData.gameStatus == 'end') {
                 if (!firefox && !iOS) {
@@ -765,21 +702,21 @@ function startRender() {
                         );
                     }
                     if (gameData.players[0].status == 'walking') {
-                        if (frame % 3 == 0) {
+                        if (gameData.frame % 3 == 0) {
                             gameData.players[0].step++;
                             if (gameData.players[0].step > 2) {
                                 gameData.players[0].step = 0;
                             }
-                            if (gameData.players[0].positionX < gameData.canvas.width - 200 - 6) {
+                            if (gameData.players[0].positionX < CANVAS_GAME.width - 200 - 6) {
                                 gameData.players[0].positionX += gameData.stepSize * 2;
                             } else {
-                                gameData.players[0].positionX = gameData.canvas.width - 200;
+                                gameData.players[0].positionX = CANVAS_GAME.width - 200;
                                 gameData.players[0].step = 0;
                                 gameData.players[0].status = 'winner';
                             }
                         }
                     }
-                    if (frame % 2 == 0) {
+                    if (gameData.frame % 2 == 0) {
                         gameData.fireworkStep++;
                     }
                     if (gameData.fireworkStep > 8) {
@@ -808,7 +745,7 @@ function startRender() {
                     gameData.snowPositionY -= 410;
                 }
             } else if (gameData.gameStatus == 'won') {
-                if (frame % 8 == 0) {
+                if (gameData.frame % 8 == 0) {
                     gameData.smokeStep++;
                 }
                 if (gameData.smokeStep > 6) {
@@ -821,22 +758,22 @@ function startRender() {
             } else if (gameData.gameStatus == 'prelost') {
                 var player = gameData.players[gameData.winner];
                 if (player.status == 'walking') {
-                    if (frame % 3 == 0) {
+                    if (gameData.frame % 3 == 0) {
                         player.step++;
                         if (player.step > 2) {
                             player.step = 0;
                         }
-                        if (player.positionX < gameData.canvas.width - 200 - 15) {
+                        if (player.positionX < CANVAS_GAME.width - 200 - 15) {
                             player.positionX += gameData.stepSize * 5;
                         } else {
                             player.step = 0;
-                            player.positionX = gameData.canvas.width - 200
+                            player.positionX = CANVAS_GAME.width - 200
                             player.status = 'winner';
                         }
                     }
 
                 }
-                if (frame % 8 == 0) {
+                if (gameData.frame % 8 == 0) {
                     gameData.smokeStep++;
                 }
                 if (gameData.smokeStep > 6) {
@@ -851,7 +788,7 @@ function startRender() {
                     gameData.snowPositionY -= 410;
                 }
             } else if (gameData.gameStatus == 'lost') {
-                if (frame % 8 == 0) {
+                if (gameData.frame % 8 == 0) {
                     gameData.smokeStep++;
                 }
                 if (gameData.smokeStep > 6) {
@@ -863,10 +800,88 @@ function startRender() {
                 if (gameData.maxPlayerPosition < gameData.players[p].positionX) {
                     gameData.maxPlayerPosition = gameData.players[p].positionX;
                 }
-                //console.log(gameData.canvas.width - gameData.maxPlayerPosition);
+                //console.log(CANVAS_GAME.width - gameData.maxPlayerPosition);
             }
-            drawStage(gameData.canvas, gameData.context);
-            frame++;
+            socket_send({
+                'action': 'set_gameData',
+                'data': gameData,
+                'session_id': session_id
+            });
+            drawStage(CANVAS_GAME, CONTEXT_GAME);
+            gameData.frame++;
         },
         50);
+}
+
+
+function renderTree() {
+    gameData.tracksPosition -= gameData.treeStep;
+    if (gameData.tracksPosition <= -330) {
+        gameData.tracksPosition += 330;
+    }
+
+    gameData.snowPositionX -= 3;
+    if (gameData.snowPositionX <= -480) {
+        gameData.snowPositionX += 480;
+    }
+
+    gameData.snowPositionY += 1;
+    if (gameData.snowPositionY >= 0) {
+        gameData.snowPositionY -= 410;
+    }
+    var treeOffset = gameData.randomOffset + gameData.treeSpace + 45,
+        player, p, i;
+    for (p = 0; p < gameData.players.length; ++p) {
+        player = gameData.players[p];
+        for (i = 0; i < trees[p].length; ++i) {
+            trees[p][i].x = trees[p][i].x - gameData.treeStep;
+        }
+        if (trees[p][0].x <= -45) {
+            trees[p].shift();
+        }
+        if ((trees[p][trees[p].length - 1].x < CANVAS_GAME.width - treeOffset) && (CANVAS_GAME.width - gameData.maxPlayerPosition > 500)) {
+            trees[p].push({
+                x: treeOffset + trees[0][trees[p].length - 1].x,
+                tile: gameData.randomTree,
+                status: 'standing'
+            });
+        }
+
+        if (player.status == 'running') {
+            for (i = 0; i < trees[p].length; ++i) {
+                treeBack = trees[p][i].x;
+                var treeFront, treeBack, playerFront, playerBack;
+                treeFront = treeBack + 60;
+                playerBack = player.positionX + 20;
+                playerFront = playerBack + 50;
+                var jumped = false;
+                if (player.type == 'npc' && HOST) {
+                    jumped = getRandomInt(1, 100) > 26;
+                    //jumped = false;
+                    if (jumped) {
+                        var spaceToJump = treeBack - playerFront;
+                        if (spaceToJump >= 0 && spaceToJump <= (player.stepSize + gameData.treeStep)) {
+                            jump(p);
+                        }
+                    }
+                }
+
+                if (!jumped) {
+                    if (playerFront > treeBack && playerBack < treeFront) {
+
+                        if (player.status != 'walking') {
+                            playSound('collide');
+                            trees[p][i].status = 'broken';
+                            player.status = 'collided';
+                            player.step = 0;
+                        }
+                        player.stepSize = gameData.stepSize;
+                        player.jumpLength = gameData.jumpLength;
+                        break;
+                    }
+                }
+
+            }
+        }
+    }
 }

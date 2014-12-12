@@ -4,6 +4,9 @@ var points = true;
 var playerIndexUser = 0;
 var session_id = '';
 var HOST = false;
+var CANVAS_GAME = null;
+var CONTEXT_GAME = null;
+var trees = [];
 
 window.addEventListener('load', function () {
     socket = new WebSocket('ws://' + window.location.hostname + ':8888/websocket');
@@ -29,8 +32,24 @@ window.addEventListener('load', function () {
             case "jump":
                 jump(data.data.player_index);
                 break;
-            case "timer":
-                setTimeout(timerStartRender, 50)
+            case "set_data":
+                if (!HOST) {
+
+                    if (gameData.gameStatus == 'active') {
+                        if (gameData.frame % Math.ceil(gameData.trackSpeed) == 0) {
+                            renderTree();
+                        }
+                    }
+                    var players = gameData.players;
+                    for (var i = 0; i < data.data.data.players.length; i++) {
+                        if (data.data.data.players[i] != 'human') {
+                            players[i] = data.data.data.players[i]
+                        }
+                    }
+                    gameData = data.data.data;
+                    gameData.players = players;
+                    drawStage(CANVAS_GAME, CONTEXT_GAME);
+                }
                 break;
         }
     };
