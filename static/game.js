@@ -246,7 +246,7 @@ var ready = function (treeOffsets) {
         humanIndex: 0,
 
         players: [{
-            step: 3,
+            step: 0,
             positionX: 0,
             positionY: 0,
             jumpLength: 8,

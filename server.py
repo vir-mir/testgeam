@@ -40,19 +40,18 @@ class WebSocket(tornado.websocket.WebSocketHandler):
             self.sends([id(self)], 'ready', {'points': lib.get_random_int(20, 200), 'host': 1})
         else:
             clients.append(id(self))
-            lib.db.replace('clients', clients)
+            lib.db.set('clients', clients)
+            self.sends(clients, 'ready', {'points': lib.get_random_int(20, 200)})
 
             if len(clients) > 3:
-                self.go_user()
-            else:
-                self.sends(clients, 'ready', {'points': lib.get_random_int(20, 200)})
+                self.go_user(clients)
 
-    def go_user(self):
-        clients = lib.db.get('clients')
+    def go_user(self, clients=None):
+        clients = clients or lib.db.get('clients')
+        lib.db.set('clients', [])
         sha1 = hashlib.sha1(b'%s%s' % (id(self), time.time()))
         session_id = 'actives_%s' % sha1.hexdigest()
         lib.db.set(session_id, clients)
-        lib.db.replace('clients', [])
         lib.db.set('points', [])
         self.sends(clients, 'start', {'clients': clients, 'session_id': session_id})
 

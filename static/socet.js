@@ -6,14 +6,16 @@ var session_id = '';
 var HOST = false;
 var CANVAS_GAME = null;
 var CONTEXT_GAME = null;
+var ACTIVE = false;
 var trees = [];
 
 window.addEventListener('load', function () {
     socket = new WebSocket('ws://' + window.location.hostname + ':8888/websocket');
     socket.onmessage = function (e) {
         var data = JSON.parse(e.data);
-        console.log(data.action);
-        user_id = data.id;
+        if (!user_id) {
+            user_id = data.id;
+        }
         switch (data.action) {
             case "ready":
                 if (data.data['host']) {
@@ -33,7 +35,7 @@ window.addEventListener('load', function () {
                 jump(data.data.player_index);
                 break;
             case "set_data":
-                if (!HOST) {
+                if (!HOST && ACTIVE) {
 
                     if (gameData.gameStatus == 'active') {
                         if (gameData.frame % Math.ceil(gameData.trackSpeed) == 0) {
@@ -69,7 +71,6 @@ var start_game = function (data) {
         }
         gameData.players[i++].type = "human";
     });
-
     jQuery('body').append('start - ' + (startTime));
     var steps = setInterval(function () {
         jQuery('body').append('start - ' + (--startTime));
@@ -79,6 +80,7 @@ var start_game = function (data) {
         gameData.gameStatus = 'active';
         clearInterval(steps);
     }, startTime * 1000);
+    ACTIVE = true;
 
 };
 
