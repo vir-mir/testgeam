@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/home/projects/agdirtywork/helen_game/bin/python
 #!-*- coding: utf-8 -*-
 import hashlib
 import json
